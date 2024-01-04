@@ -1,1 +1,33 @@
-# auto_lol
+# Auto_lol
+
+## Python version
+- Python 3.10.6
+
+## Features
+
+- [x] **Auto accept**: auto accept queue, never miss a queue again.
+- [x] **Auto ban**: Auto ban the pre selected champion according to your assigned lane.
+- [x] **Auto pick**: Auto pick the pre selected champion according to your assigned lane.
+
+## Usage
+### From source code
+1. Install dependencies - `python3 -m pip install -r requirements.txt`
+
+>安裝依賴 - `python3 -m pip install -r requirements.txt`
+
+2. run main.py `python3 main.py` 
+
+### From release
+1. download [latest release][1]
+
+2. unzip `Auto_lol.zip`
+
+3. run `Auto_lol.exe`
+
+Note: keep the executable file in the folder
+
+## License
+
+MIT License
+
+[1]:[https://github.com/berniewu2/auto_lol/releases/latest]
