@@ -18,7 +18,7 @@
 2. run main.py `python3 main.py` 
 
 ### From release
-1. download [latest release][1]
+1. download [latest release](https://github.com/berniewu2/Auto_lol/releases/latest)
 
 2. unzip `Auto_lol.zip`
 
@@ -30,4 +30,3 @@ Note: keep the executable file in the folder
 
 MIT License
 
-[1]:[https://github.com/berniewu2/Auto_lol/releases/latest]
