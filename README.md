@@ -30,4 +30,4 @@ Note: keep the executable file in the folder
 
 MIT License
 
-[1]:[https://github.com/berniewu2/auto_lol/releases/latest]
+[1]:[https://github.com/berniewu2/Auto_lol/releases/latest)
