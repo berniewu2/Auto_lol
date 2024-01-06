@@ -1,4 +1,3 @@
-time
 urllib3
 lcu_driver
 PySimpleGUI

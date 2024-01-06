@@ -1,12 +1,19 @@
 import time
+import sys
+import json
+import os, os.path
 import urllib3
 from lcu_driver import Connector
-import PySimpleGUI as psg
+from tkinter import *
+from tkinter import ttk
+from tkinter import messagebox
+from tkinter.font import Font
+from threading import Thread
 
 
 client = Connector()
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-global am_i_assigned, am_i_picking, am_i_banning, ban_number, phase, picks, bans, in_game, summoner_name, accept, ban, select
+global am_i_assigned, am_i_picking, am_i_banning, ban_number, phase, picks, bans, in_game, summoner_name, accept, ban, select, first_lane, second_lane
 am_i_assigned = False
 am_i_banning = False
 am_i_picking = False
@@ -44,18 +51,18 @@ async def auto_accept_match(connection,event):
 
 @client.ws.register('/lol-champ-select/v1/session', event_types=('CREATE', 'UPDATE',))
 async def champ_select_changed(connection, event):
-    global am_i_assigned, pick_number, ban_number, am_i_banning, am_i_picking, phase, bans, picks, have_i_prepicked, in_game, action_id
+    global am_i_assigned, pick_number, ban_number, am_i_banning, am_i_picking, phase, bans, picks, have_i_prepicked, in_game, action_id, first_lane, second_lane
     have_i_prepicked = False
     lobby_phase = event.data['timer']['phase']
     local_player_cell_id = event.data['localPlayerCellId']
     for teammate in event.data['myTeam']:
         if teammate['cellId'] == local_player_cell_id:
             assigned_position = teammate['assignedPosition']
-            if assigned_position == 'middle': assigned_position = 'mid'
-            elif assigned_position == 'jungle': assigned_position = 'jg'
-            elif assigned_position == 'top': assigned_position = 'top'
-            elif assigned_position == 'bottom': assigned_position = 'adc'
-            elif assigned_position == 'utility': assigned_position = 'sup'
+            if assigned_position == 'middle': assigned_position = '3'
+            elif assigned_position == 'jungle': assigned_position = '2'
+            elif assigned_position == 'top': assigned_position = '1'
+            elif assigned_position == 'bottom': assigned_position = '4'
+            elif assigned_position == 'utility': assigned_position = '5'
             am_i_assigned = True
 
     for action in event.data['actions']:
@@ -72,144 +79,248 @@ async def champ_select_changed(connection, event):
         while am_i_banning:
             try:
                 if assigned_position == first_lane[0]:
-                    ban_champ = first_lane[1]
+                    ban_champ = first_lane[2]
+                    for teammate in event.data['myTeam']:
+                        if teammate['championPickIntent'] == champions_map[ban_champ]:
+                            ban_champ = first_lane[3]
+                    for teammate in event.data['myTeam']:
+                        if teammate['championPickIntent'] == champions_map[ban_champ]:
+                            ban_champ = 'None'
                 else:
-                    ban_champ = second_lane[1]
+                    ban_champ = second_lane[2]
+                    for teammate in event.data['myTeam']:
+                        if teammate['championPickIntent'] == champions_map[ban_champ]:
+                            ban_champ = second_lane[3]
+                    for teammate in event.data['myTeam']:
+                        if teammate['championPickIntent'] == champions_map[ban_champ]:
+                            ban_champ = 'None'
+                
                 await connection.request('patch', '/lol-champ-select/v1/session/actions/%d' % action_id,
                                          data={"championId": champions_map[ban_champ], "completed": True})
-                # ban_number += 1
                 am_i_banning = False
             except (Exception,):
-                # ban_number += 1
-                # if ban_number > len(
-                #         bans):  # Due to some lcu bugs I have to do this to correct a bug that may happen in draft custom
-                #     ban_number = 0
                 pass
     if phase == 'pick' and lobby_phase == 'BAN_PICK' and am_i_picking and select:
         while am_i_picking:
             try:
                 if assigned_position == first_lane[0]:
-                    select_champ = first_lane[2]
+                    select_champ = first_lane[1]
                 else:
-                    select_champ = second_lane[2]
+                    select_champ = second_lane[1]
                 await connection.request('patch', '/lol-champ-select/v1/session/actions/%d' % action_id,
                                          data={"championId": champions_map[select_champ], "completed": True})
                 am_i_picking = False
             except (Exception,):
-
                 pass
     if lobby_phase == 'PLANNING' and not have_i_prepicked:
         try:
             await connection.request('patch', '/lol-champ-select/v1/session/actions/%d' % action_id,
-                                     data={"championId": champions_map['Trundle'], "completed": False})
+                                     data={"championId": champions_map[select_champ], "completed": False})
             have_i_prepicked = True
         except (Exception,):
             print(Exception)
     if lobby_phase == 'FINALIZATION':
         time.sleep(2)
+
 @client.close
 async def disconnect(_):
     print('The client has been closed!')
-    await client.stop()
-    
-
-print("""    /\        | |        | |     | |
-   /  \  _   _| |_ ___   | | ___ | |
-  / /\ \| | | | __/ _ \  | |/ _ \| |
- / ____ \ |_| | || (_) | | | (_) | |
-/_/    \_\__,_|\__\___/  |_|\___/|_|
-                                        
-""")
-
-print("\nClose this window will stop the application\n")
-psg.set_options(font=("Arial Bold",14))
-title=psg.Text(f"Auto League", text_color= 'gold2')
-choices=[]
-finished = False
-choices.append(psg.Checkbox("Auto Accept", key='accept', default= True))
-choices.append(psg.Checkbox("Auto Ban", key='ban', default= True))
-choices.append(psg.Checkbox("Auto Select", key='select', default= True))
+    raise SystemExit
 
 champ_list = ['Aatrox', 'Ahri', 'Akali', 'Akshan', 'Alistar', 'Amumu', 'Anivia', 'Annie', 'Aphelios', 'Ashe', 'Aurelion Sol', 'Azir', 'Bard', "Bel'Veth", 'Blitzcrank', 'Brand', 'Braum', 'Briar', 'Caitlyn', 'Camille', 'Cassiopeia', "Cho'Gath", 'Corki', 'Darius', 'Diana', 'Dr. Mundo', 'Draven', 'Ekko', 'Elise', 'Evelynn', 'Ezreal', 'Fiddlesticks', 'Fiora', 'Fizz', 'Galio', 'Gangplank', 'Garen', 'Gnar', 'Gragas', 'Graves', 'Gwen', 'Hecarim', 'Heimerdinger', 'Hwei', 'Illaoi', 'Irelia', 'Ivern', 'Janna', 'Jarvan IV', 'Jax', 'Jayce', 'Jhin', 'Jinx', "K'Sante", "Kai'Sa", 'Kalista', 'Karma', 'Karthus', 'Kassadin', 'Katarina', 'Kayle', 'Kayn', 'Kennen', "Kha'Zix", 'Kindred', 'Kled', "Kog'Maw", 'LeBlanc', 'Lee Sin', 'Leona', 'Lillia', 'Lissandra', 'Lucian', 'Lulu', 'Lux', 'Malphite', 'Malzahar', 'Maokai', 'Master Yi', 'Milio', 'Miss Fortune', 'Mordekaiser', 'Morgana', 'Naafiri', 'Nami', 'Nasus', 'Nautilus', 'Neeko', 'Nidalee', 'Nilah', 'Nocturne', 'None', 'Nunu & Willump', 'Olaf', 'Orianna', 'Ornn', 'Pantheon', 'Poppy', 'Pyke', 'Qiyana', 'Quinn', 'Rakan', 'Rammus', "Rek'Sai", 'Rell', 'Renata Glasc', 'Renekton', 'Rengar', 'Riven', 'Rumble', 'Ryze', 'Samira', 'Sejuani', 'Senna', 'Seraphine', 'Sett', 'Shaco', 'Shen', 'Shyvana', 'Singed', 'Sion', 'Sivir', 'Skarner', 'Sona', 'Soraka', 'Swain', 'Sylas', 'Syndra', 'Tahm Kench', 'Taliyah', 'Talon', 'Taric', 'Teemo', 'Thresh', 'Tristana', 'Trundle', 'Tryndamere', 'Twisted Fate', 'Twitch', 'Udyr', 'Urgot', 'Varus', 'Vayne', 'Veigar', "Vel'Koz", 'Vex', 'Vi', 'Viego', 'Viktor', 'Vladimir', 'Volibear', 'Warwick', 'Wukong', 'Xayah', 'Xerath', 'Xin Zhao', 'Yasuo', 'Yone', 'Yorick', 'Yuumi', 'Zac', 'Zed', 'Zeri', 'Ziggs', 'Zilean', 'Zoe', 'Zyra']
 
-lane_text_1=psg.Text(f"First lane")
-lane_1=[]
-lane_1.append(psg.Radio("top", "lane_1", key='top_1', enable_events=True,default=True))
-lane_1.append(psg.Radio("jungle", "lane_1", key='jungle_1', enable_events=True))
-lane_1.append(psg.Radio("mid", "lane_1", key='mid_1',enable_events=True))
-lane_1.append(psg.Radio("adc", "lane_1", key='adc_1', enable_events=True))
-lane_1.append(psg.Radio("support", "lane_1", key='sup_1',enable_events=True))
-champ_1=psg.Text("Champ")
-champ_dd_1 = psg.DD(champ_list, size=(10,8),enable_events=True, key='select_1')
-ban_1=psg.Text("Ban", text_color='VioletRed3')
-b1 = psg.DD(champ_list, size=(10,8),enable_events=True, key='ban_1')
 
-lane_text_2=psg.Text(f"Second lane")
-lane_2=[]
-lane_2.append(psg.Radio("top", "lane_2", key='top_2', enable_events=True))
-lane_2.append(psg.Radio("jungle", "lane_2", key='jungle_2', enable_events=True,default=True))
-lane_2.append(psg.Radio("mid", "lane_2", key='mid_2',enable_events=True))
-lane_2.append(psg.Radio("adc", "lane_2", key='adc_2', enable_events=True))
-lane_2.append(psg.Radio("support", "lane_2", key='sup_2',enable_events=True))
-champ_2=psg.Text("Champ")
-champ_dd_2= psg.DD(champ_list, size=(10,8),enable_events=True, key='select_2')
-ban_2=psg.Text("Ban", text_color='VioletRed3')
-b2 = psg.DD(champ_list, size=(10,8),enable_events=True, key='ban_2')
+def check_input(event):
+    value = event.widget.get()
 
-ok=psg.Button("OK")
-exit=psg.Button("Exit")
-layout=[[title],[choices],[lane_text_1],[lane_1],[champ_1,champ_dd_1],[ban_1,b1],[lane_text_2],[lane_2],[champ_2,champ_dd_2],[ban_2,b2],[ok, exit]]
+    if value == '':
+        event.widget['values'] = champ_list
+    else:
+        data = [item for item in champ_list if value.lower() in item.lower()]
+        event.widget['values'] = data
 
-window = psg.Window('百鬼あやめ', layout, size=(700,450))
-while True:
-    event, values = window.read()
-    # print (event, values)
-    if event in (psg.WIN_CLOSED, 'Exit'): 
-        finished = True
-        break
-    window['select_1'].update(visible = values['select'])
-    window['ban_1'].update(visible = values['ban'])
-    window['select_2'].update(visible = values['select'])
-    window['ban_2'].update(visible = values['ban'])
-
-    if event=='OK':
-        result = values
-        break
-
-
-window.close()
-if not finished:
-    accept = result['accept']
-    ban = result['ban']
-    select = result['select']
-    if result['top_1']:
-        first_lane = ['top']
-    elif result['jungle_1']:
-        first_lane = ['jg']
-    elif result['mid_1']:
-        first_lane = ['mid']
-    elif result['adc_1']:
-        first_lane = ['adc']
-    elif result['sup_1']:
-        first_lane = ['sup']
-
-    if result['top_2']:
-        second_lane = ['top']
-    elif result['jungle_2']:
-        second_lane = ['jg']
-    elif result['mid_2']:
-        second_lane = ['mid']
-    elif result['adc_2']:
-        second_lane = ['adc']
-    elif result['sup_2']:
-        second_lane = ['sup']
-    first_lane.append(result['ban_1'])
-    first_lane.append(result['select_1'])
-
-    second_lane.append(result['ban_2'])
-    second_lane.append(result['select_2'])
-
-
-    print(f'first choice: {first_lane}')
-    print(f'second choice: {second_lane}\n')
+def begin():
     client.start()
+
+def get_values():
+    if not t1.is_alive():    
+        t1.start()
+
+    
+    check_values = {
+        'accept': chk_var1.get(),
+        'ban': chk_var2.get(),
+        'select': chk_var3.get()
+    }
+    global accept, ban, select, first_lane, second_lane
+    accept = chk_var1.get()
+    ban = chk_var2.get()
+    select = chk_var3.get()
+
+    radio_value_first = first_lane_choice.get()
+    combo_value_first = first_select.get()
+
+    first_lane_values = {
+        'select': combo_value_first,
+        'Ban_1': first_ban_1.get(),
+        'Ban_2': first_ban_2.get()
+    }
+    
+    first_lane = [radio_value_first, combo_value_first, first_ban_1.get(), first_ban_2.get()]
+    
+    radio_value_second = second_lane_choice.get()
+    combo_value_second = second_select.get()
+
+    second_lane_values = {
+        'select': combo_value_second,
+        'Ban_1': second_ban_1.get(),
+        'Ban_2': second_ban_2.get()
+    }
+    second_lane = [radio_value_second, combo_value_second, second_ban_1.get(), second_ban_2.get()]
+
+    all_values = {
+        'choices': check_values,
+        'first_lane': {
+            'lane': radio_value_first,
+            'champ': first_lane_values
+        },
+        'second_lane': {
+            'lane': radio_value_second,
+            'champ': second_lane_values
+        }
+    }
+
+    return(all_values)
+import asyncio
+
+async def end():
+    await client.stop()
+
+def on_closing():
+    window.destroy()
+    asyncio.run(end())
+
+
+
+
+window = Tk()
+window.geometry('550x500')
+window.title('Auto lol')
+text_font = Font(family="Helvetica", size=16)
+# Creating Checkboxes
+chk_var1 = IntVar(value=1)
+chk_var2 = IntVar()
+chk_var3 = IntVar()
+
+chk1 = Checkbutton(window, text='Auto accept', variable=chk_var1, font=text_font)
+chk2 = Checkbutton(window, text='Auto ban', variable=chk_var2, font=text_font)
+chk3 = Checkbutton(window, text='Auto pick', variable=chk_var3, font=text_font)
+
+
+values = {"top" : "1", 
+        "jungle" : "2", 
+        "mid" : "3", 
+        "adc" : "4", 
+        "support" : "5"} 
+current_y = 10
+
+chk1.place(x= 10, y= current_y)
+chk2.place(x= 170, y= current_y)
+chk3.place(x= 310, y= current_y)
+
+current_y += 40
+
+Label(window, text="First lane", font=Font(family="Helvetica", size=18)).place(x=10, y=current_y)
+current_y += 40
+
+first_lane_choice = StringVar(window, "1") 
+for (text, value) in values.items(): 
+    Radiobutton(window, text = text, variable = first_lane_choice, 
+        value = value, font=text_font).place(x=90*(int(value)-1)+10,y=current_y) 
+current_y += 50
+
+Label(window, text="Champion", font=text_font).place(x=10, y=current_y)
+
+first_select = ttk.Combobox(window)
+first_select['values'] = champ_list
+first_select.bind('<KeyRelease>', check_input)
+first_select.place(x=150, y= current_y + 5)
+current_y += 30
+
+Label(window, text="Ban 1", font=text_font).place(x=10, y=current_y)
+first_ban_1 =ttk.Combobox(window)
+first_ban_1['values'] = champ_list
+first_ban_1.bind('<KeyRelease>', check_input)
+first_ban_1.place(x=100, y= current_y + 5)
+current_y += 30
+
+Label(window, text="Ban 2", font=text_font).place(x=10, y=current_y)
+first_ban_2 =ttk.Combobox(window)
+first_ban_2['values'] = champ_list
+first_ban_2.bind('<KeyRelease>', check_input)
+first_ban_2.place(x=100, y= current_y + 5)
+current_y += 50
+
+Label(window, text="Second lane", font=Font(family="Helvetica", size=18)).place(x=10, y=current_y)
+current_y += 40
+
+second_lane_choice = StringVar(window, "2") 
+for (text, value) in values.items(): 
+    Radiobutton(window, text = text, variable = second_lane_choice, 
+        value = value, font=text_font).place(x=90*(int(value)-1)+10,y=current_y) 
+current_y += 50
+
+Label(window, text="Champion", font=text_font).place(x=10, y=current_y)
+second_select =ttk.Combobox(window)
+second_select['values'] = champ_list
+second_select.bind('<KeyRelease>', check_input)
+second_select.place(x=150, y= current_y + 5)
+
+current_y += 30
+
+Label(window, text="Ban 1", font=text_font).place(x=10, y=current_y)
+second_ban_1 =ttk.Combobox(window)
+second_ban_1['values'] = champ_list
+second_ban_1.bind('<KeyRelease>', check_input)
+second_ban_1.place(x=100, y= current_y + 5)
+current_y += 30
+Label(window, text="Ban 2", font=text_font).place(x=10, y=current_y)
+second_ban_2 =ttk.Combobox(window)
+second_ban_2['values'] = champ_list
+second_ban_2.bind('<KeyRelease>', check_input)
+second_ban_2.place(x=100, y= current_y + 5)
+
+ok_button = Button(window, text='OK', command=get_values, width= 40, borderwidth=5)
+ok_button.place(x=10, y=450)
+
+
+def load():
+    if os.path.isfile('profile.json'):
+        with open('profile.json', 'r') as file:
+            data = json.load(file)
+            if data['choices']['accept'] : chk1.select()
+            if data['choices']['ban'] : chk2.select()
+            if data['choices']['select'] : chk3.select()
+            first_lane_choice.set(data['first_lane']['lane'])
+            second_lane_choice.set(data['second_lane']['lane'])
+            first_select.current(champ_list.index(data['first_lane']['champ']['select']))
+            first_ban_1.current(champ_list.index(data['first_lane']['champ']['Ban_1']))
+            first_ban_2.current(champ_list.index(data['first_lane']['champ']['Ban_2']))
+            second_select.current(champ_list.index(data['second_lane']['champ']['select']))
+            second_ban_1.current(champ_list.index(data['second_lane']['champ']['Ban_1']))
+            second_ban_2.current(champ_list.index(data['second_lane']['champ']['Ban_2']))
+
+
+def save():
+    with open('profile.json', 'w+') as file:
+        file.write(json.dumps(get_values()))
+    
+Button(window, text="save", command=save, borderwidth=5, width= 8).place(x=320, y=450)
+Button(window, text="load", command=load, borderwidth=5, width= 8).place(x=400, y=450)
+Button(window, text="Quit", command=window.destroy, borderwidth=5).place(x=490, y=450)
+window.protocol("WM_DELETE_WINDOW", on_closing)
+
+
+if __name__ == '__main__':
+    t1 = Thread(target=begin)
+    window.mainloop()
