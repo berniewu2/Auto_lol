@@ -1,9 +1,2 @@
-sys
-json
-os
-os.path
 urllib3
 lcu_driver
-tkinter
-tkinter.font
-threading

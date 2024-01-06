@@ -6,14 +6,12 @@
 ## Features
 
 - [x] **Auto accept**: auto accept queue, never miss a queue again.
-- [x] **Auto ban**: Auto ban the pre selected champion according to your assigned lane.
+- [x] **Auto ban**: Auto ban the pre selected champion if it is not hovered by teammates
 - [x] **Auto pick**: Auto pick the pre selected champion according to your assigned lane.
 
 ## Usage
 ### From source code
 1. Install dependencies - `python3 -m pip install -r requirements.txt`
-
->安裝依賴 - `python3 -m pip install -r requirements.txt`
 
 2. run main.py `python3 main.py` 
 
