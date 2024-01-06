@@ -1,3 +1,9 @@
+sys
+json
+os
+os.path
 urllib3
 lcu_driver
-PySimpleGUI
+tkinter
+tkinter.font
+threading
