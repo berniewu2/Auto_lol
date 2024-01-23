@@ -33,6 +33,7 @@ async def lcu_ready(connection):
     summoner_to_json = await summoner.json()
     summoner_name = summoner_to_json['gameName']
     print(f'Log in as: {summoner_name}')
+    messagebox.showinfo("Login", f'Log in as: {summoner_name}')
     summoner_id = summoner_to_json['summonerId']
     
     champion_list = await connection.request('get', f'/lol-champions/v1/inventories/{summoner_id}/champions-minimal')
@@ -142,11 +143,13 @@ def check_input(event):
 def begin():
     client.start()
 
-def get_values():
+def threading(): 
     if not t1.is_alive():    
         t1.start()
+    get_values()
 
-    
+def get_values():
+   
     check_values = {
         'accept': chk_var1.get(),
         'ban': chk_var2.get(),
@@ -198,6 +201,7 @@ async def end():
 
 def on_closing():
     window.destroy()
+    sys.exit()
     asyncio.run(end())
 
 
@@ -290,7 +294,7 @@ second_ban_2['values'] = champ_list
 second_ban_2.bind('<KeyRelease>', check_input)
 second_ban_2.place(x=100, y= current_y + 5)
 
-ok_button = Button(window, text='OK', command=get_values, width= 40, borderwidth=5)
+ok_button = Button(window, text='OK', command=threading, width= 40, borderwidth=5)
 ok_button.place(x=10, y=450)
 
 
@@ -322,5 +326,6 @@ window.protocol("WM_DELETE_WINDOW", on_closing)
 
 
 if __name__ == '__main__':
-    t1 = Thread(target=begin)
+    t1=Thread(target=begin)
+    t1.daemon = True
     window.mainloop()
